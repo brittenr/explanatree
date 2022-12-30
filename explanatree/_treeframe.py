@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Callable, Union
 
 import pandas as pd
 
@@ -80,10 +80,12 @@ def derive_source(tree_df):
         return "xgb"
 
     return "unknown"
-    
+
 
 def validate_treeframe(df: pd.DataFrame) -> None:
-    assert isinstance(df, pd.DataFrame), "Valid TreeFrame should be instance of pandas.DataFrame"
+    assert isinstance(
+        df, pd.DataFrame
+    ), "Valid TreeFrame should be instance of pandas.DataFrame"
 
 
 def process_raw_dataframe(raw_dataframe, source) -> pd.DataFrame:
@@ -94,17 +96,27 @@ def process_raw_dataframe(raw_dataframe, source) -> pd.DataFrame:
         "lgbm": parse_lgbm_trees_to_dataframe,
     }
 
-    output_dataframe = processing_funs.get(source, parse_unknown_trees_to_dataframe)(
-        raw_dataframe
-    )
+    processor: Callable = processing_funs.get(source, parse_unknown_trees_to_dataframe)
+
+    output_dataframe: pd.DataFrame = processor(raw_dataframe)
 
     validate_treeframe(output_dataframe)
 
     return output_dataframe
 
 
+def infer_features(dataframe: pd.DataFrame) -> list:
+    return list(dataframe["split_feature"].unique())
+
+
 class TreeFrame:
     def __init__(self, raw_dataframe: pd.DataFrame) -> None:
+        """Class for containing clean and processed trees_to_dataframe outputs and related information for consumption
+
+        Args:
+            raw_dataframe (pd.DataFrame): _description_
+        """
         self.raw_dataframe = raw_dataframe
         self.source = derive_source(self.raw_dataframe)
-        self.frame = process_raw_dataframe(self.source, self.source)
+        self.df = process_raw_dataframe(self.raw_dataframe, self.source)
+        self.features = infer_features(self.df)
